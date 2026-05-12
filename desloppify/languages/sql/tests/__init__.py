@@ -1,0 +1,1 @@
+"""SQL language plugin tests."""
