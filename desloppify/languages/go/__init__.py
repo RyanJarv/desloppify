@@ -13,20 +13,31 @@ from desloppify.languages._framework.base.phase_builders import (
     detector_phase_test_coverage,
     shared_subjective_duplicates_tail,
 )
-from desloppify.languages._framework.base.types import DetectorPhase, LangConfig
+from desloppify.languages._framework.base.types import (
+    DetectorPhase,
+    LangConfig,
+    LangSecurityResult,
+)
 from desloppify.languages._framework.generic_support.core import make_tool_phase
 from desloppify.languages._framework.registry.registration import register_full_plugin
 from desloppify.languages._framework.registry.state import register_lang_hooks
 from desloppify.languages._framework.treesitter.phases import all_treesitter_phases
 from desloppify.languages.go import test_coverage as go_test_coverage_hooks
+from desloppify.languages.go._zones import GO_ZONE_RULES
 from desloppify.languages.go.commands import get_detect_commands
 from desloppify.languages.go.detectors.deps import build_dep_graph as build_go_dep_graph
+from desloppify.languages.go.detectors.security import detect_go_security
 from desloppify.languages.go.extractors import (
     GO_FILE_EXCLUSIONS,
     extract_functions,
     find_go_files,
 )
-from desloppify.languages.go.phases import phase_structural
+from desloppify.languages.go.phases import (
+    phase_coupling,
+    phase_smells,
+    phase_structural,
+    phase_unused,
+)
 from desloppify.languages.go.review import (
     HOLISTIC_REVIEW_DIMENSIONS,
     LOW_VALUE_PATTERN,
@@ -37,12 +48,24 @@ from desloppify.languages.go.review import (
     module_patterns,
 )
 
-from desloppify.languages.go._zones import GO_ZONE_RULES
+GO_ENTRY_PATTERNS = ["main.go", "cmd/"]
 
-GO_ENTRY_PATTERNS = ["/main.go", "/cmd/"]
+
+def _go_treesitter_phases() -> list[DetectorPhase]:
+    """Use tree-sitter for AST smells/cohesion, but leave unused imports to Go."""
+    return [
+        phase
+        for phase in all_treesitter_phases("go")
+        if phase.label != "Unused imports"
+    ]
+
 
 class GoConfig(LangConfig):
     """Go language configuration."""
+
+    def detect_lang_security_detailed(self, files, zone_map):
+        entries, files_scanned = detect_go_security(files, zone_map)
+        return LangSecurityResult(entries=entries, files_scanned=files_scanned)
 
     def __init__(self):
         super().__init__(
@@ -55,6 +78,8 @@ class GoConfig(LangConfig):
             barrel_names=set(),
             phases=[
                 DetectorPhase("Structural analysis", phase_structural),
+                DetectorPhase("Coupling + cycles + orphaned", phase_coupling),
+                DetectorPhase("Unused (staticcheck)", phase_unused),
                 make_tool_phase(
                     "golangci-lint",
                     "golangci-lint run --out-format=json",
@@ -65,9 +90,10 @@ class GoConfig(LangConfig):
                 make_tool_phase(
                     "go vet", "go vet ./...", "gnu", "vet_error", tier=3
                 ),
-                *all_treesitter_phases("go"),
+                *_go_treesitter_phases(),
                 detector_phase_signature(),
                 detector_phase_test_coverage(),
+                DetectorPhase("Code smells", phase_smells),
                 detector_phase_security(),
                 *shared_subjective_duplicates_tail(),
             ],

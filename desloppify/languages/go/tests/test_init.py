@@ -5,8 +5,8 @@ Go plugin originally contributed by tinker495 (PR #128).
 
 from __future__ import annotations
 
-from desloppify.engine.policy.zones import FileZoneMap, Zone
 from desloppify.engine.hook_registry import get_lang_hook
+from desloppify.engine.policy.zones import FileZoneMap, Zone
 from desloppify.languages import get_lang
 
 
@@ -34,9 +34,20 @@ def test_has_core_phases():
     cfg = get_lang("go")
     labels = {p.label for p in cfg.phases}
     assert "Structural analysis" in labels
+    assert "Coupling + cycles + orphaned" in labels
+    assert "Unused (staticcheck)" in labels
+    assert "Code smells" in labels
     assert "Security" in labels
     assert "golangci-lint" in labels
     assert "go vet" in labels
+    assert "Unused imports" not in labels
+
+
+def test_go_entry_patterns_match_relative_orphaned_paths():
+    cfg = get_lang("go")
+    assert "main.go" in cfg.entry_patterns
+    assert "cmd/" in cfg.entry_patterns
+    assert "/main.go" not in cfg.entry_patterns
 
 
 def test_integration_depth_full():
