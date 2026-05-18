@@ -145,7 +145,11 @@ def make_unused_imports_phase(spec: TreeSitterLangSpec) -> DetectorPhase:
 # ── Convenience: all tree-sitter phases for a named language ──
 
 
-def all_treesitter_phases(spec_name: str) -> list[DetectorPhase]:
+def all_treesitter_phases(
+    spec_name: str,
+    *,
+    include_unused_imports: bool = True,
+) -> list[DetectorPhase]:
     """Return all tree-sitter-powered phases for a language plugin.
 
     Convenience bundle — returns AST smells, cohesion, and (when import
@@ -166,7 +170,7 @@ def all_treesitter_phases(spec_name: str) -> list[DetectorPhase]:
         make_cohesion_phase(spec),
     ]
 
-    if spec.import_query:
+    if include_unused_imports and spec.import_query:
         phases.append(make_unused_imports_phase(spec))
 
     return phases

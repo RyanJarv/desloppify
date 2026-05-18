@@ -355,3 +355,27 @@ def test_all_treesitter_phases_excludes_imports_when_no_import_query():
     assert "AST smells" in labels
     assert "Responsibility cohesion" in labels
     assert "Unused imports" not in labels
+
+
+def test_all_treesitter_phases_can_disable_imports():
+    """Languages with stronger import tooling can skip generic import heuristics."""
+    mock_spec = MagicMock()
+    mock_spec.function_query = "(some_query)"
+    mock_spec.import_query = "(import_query)"
+
+    with patch(
+        "desloppify.languages._framework.treesitter.is_available",
+        return_value=True,
+    ), patch(
+        "desloppify.languages._framework.treesitter.get_spec",
+        return_value=mock_spec,
+    ):
+        from desloppify.languages._framework.treesitter.phases import (
+            all_treesitter_phases,
+        )
+        result = all_treesitter_phases("test_lang", include_unused_imports=False)
+
+    labels = [p.label for p in result]
+    assert "AST smells" in labels
+    assert "Responsibility cohesion" in labels
+    assert "Unused imports" not in labels
