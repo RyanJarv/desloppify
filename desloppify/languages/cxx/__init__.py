@@ -49,11 +49,6 @@ class CxxConfig(LangConfig):
         return detect_cxx_security(files, zone_map)
 
     def __init__(self):
-        tree_sitter_phases = [
-            phase for phase in all_treesitter_phases("cpp")
-            if phase.label != "Unused imports"
-        ]
-
         super().__init__(
             name="cxx",
             extensions=CXX_EXTENSIONS,
@@ -66,7 +61,7 @@ class CxxConfig(LangConfig):
                 DetectorPhase("Structural analysis", phase_structural),
                 DetectorPhase("Coupling + cycles + orphaned", phase_coupling),
                 DetectorPhase("cppcheck", phase_cppcheck_issue),
-                *tree_sitter_phases,
+                *all_treesitter_phases("cpp", include_unused_imports=False),
                 detector_phase_signature(),
                 detector_phase_test_coverage(),
                 detector_phase_security(),
