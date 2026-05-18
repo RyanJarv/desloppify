@@ -63,7 +63,18 @@ def parse_golangci(output: str, scan_path: Path) -> list[dict]:
     """Parse golangci-lint JSON output: `{"Issues": [...]}`."""
     del scan_path
     entries: list[dict] = []
-    data = _load_json_output(output, parser_name="golangci")
+    try:
+        data = _load_json_output(output, parser_name="golangci")
+    except ToolParserError:
+        # golangci-lint v2 can append a human summary such as "0 issues."
+        # after the requested JSON output. Keep the parser strict about the
+        # prefix while tolerating that trailing status line.
+        try:
+            data, _ = json.JSONDecoder().raw_decode(output.lstrip())
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ToolParserError(
+                "golangci parser could not decode JSON output"
+            ) from exc
     issues = data.get("Issues") if isinstance(data, dict) else []
     for issue in issues or []:
         pos = issue.get("Pos") or {}

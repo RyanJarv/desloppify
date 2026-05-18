@@ -57,7 +57,7 @@ class GoConfig(LangConfig):
                 DetectorPhase("Structural analysis", phase_structural),
                 make_tool_phase(
                     "golangci-lint",
-                    "golangci-lint run --out-format=json",
+                    "golangci-lint run --output.json.path stdout",
                     "golangci",
                     "golangci_lint",
                     tier=2,
@@ -65,7 +65,7 @@ class GoConfig(LangConfig):
                 make_tool_phase(
                     "go vet", "go vet ./...", "gnu", "vet_error", tier=3
                 ),
-                *all_treesitter_phases("go"),
+                *all_treesitter_phases("go", include_unused_imports=False),
                 detector_phase_signature(),
                 detector_phase_test_coverage(),
                 detector_phase_security(),
