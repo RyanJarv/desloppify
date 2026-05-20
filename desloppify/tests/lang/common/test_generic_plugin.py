@@ -82,16 +82,20 @@ class TestParseGnu:
 
 
 class TestParseGolangci:
-    def test_extracts_issues(self):
-        data = {
-            "Issues": [
-                {
-                    "Pos": {"Filename": "main.go", "Line": 10, "Column": 5},
-                    "Text": "unused variable",
-                }
-            ]
-        }
-        entries = parse_golangci(json.dumps(data), Path("."))
+    def test_handles_v1_json_output(self):
+        v1_output = json.dumps(
+            {
+                "Issues": [
+                    {
+                        "Pos": {"Filename": "main.go", "Line": 10, "Column": 5},
+                        "Text": "unused variable",
+                    }
+                ]
+            }
+        )
+
+        entries = parse_golangci(v1_output, Path("."))
+
         assert len(entries) == 1
         assert entries[0] == {"file": "main.go", "line": 10, "message": "unused variable"}
 
@@ -99,16 +103,23 @@ class TestParseGolangci:
         entries = parse_golangci(json.dumps({"Issues": []}), Path("."))
         assert entries == []
 
-    def test_handles_v2_trailing_summary(self):
-        data = {
-            "Issues": [
+    def test_handles_v2_json_output_with_trailing_summary(self):
+        v2_output = (
+            json.dumps(
                 {
-                    "Pos": {"Filename": "main.go", "Line": 10},
-                    "Text": "unused variable",
+                    "Issues": [
+                        {
+                            "Pos": {"Filename": "main.go", "Line": 10},
+                            "Text": "unused variable",
+                        }
+                    ]
                 }
-            ]
-        }
-        entries = parse_golangci(json.dumps(data) + "\n1 issue.\n", Path("."))
+            )
+            + "\n1 issue.\n"
+        )
+
+        entries = parse_golangci(v2_output, Path("."))
+
         assert entries == [
             {"file": "main.go", "line": 10, "message": "unused variable"}
         ]
