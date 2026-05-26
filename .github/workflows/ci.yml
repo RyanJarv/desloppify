@@ -65,6 +65,26 @@ jobs:
       - name: Run CI contracts gate
         run: make ci-contracts
 
+  go-golangci-integration:
+    name: go-golangci-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12
+          install-only: true
+      - name: Run Go golangci-lint integration
+        run: make integration-go-golangci
+
   tests-core:
     name: tests-core
     runs-on: ubuntu-latest

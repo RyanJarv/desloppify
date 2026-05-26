@@ -5,6 +5,7 @@
 	typecheck \
 	arch \
 	ci-contracts \
+	integration-go-golangci \
 	integration-roslyn \
 	tests \
 	tests-full \
@@ -58,6 +59,9 @@ ci-contracts: install-ci-tools
 
 integration-roslyn: install-ci-tools
 	pytest -q desloppify/tests/lang/csharp/test_csharp_deps.py -k "roslyn"
+
+integration-go-golangci: install-ci-tools
+	pytest -q desloppify/languages/go/integration_tests/test_golangci_lint.py
 
 tests: install-ci-tools
 	pytest -q $(PYTEST_XML_FLAG)
