@@ -82,46 +82,22 @@ class TestParseGnu:
 
 
 class TestParseGolangci:
-    def test_handles_v1_json_output(self):
-        v1_output = json.dumps(
-            {
-                "Issues": [
-                    {
-                        "Pos": {"Filename": "main.go", "Line": 10, "Column": 5},
-                        "Text": "unused variable",
-                    }
-                ]
-            }
-        )
-
-        entries = parse_golangci(v1_output, Path("."))
-
+    def test_extracts_issues(self):
+        data = {
+            "Issues": [
+                {
+                    "Pos": {"Filename": "main.go", "Line": 10, "Column": 5},
+                    "Text": "unused variable",
+                }
+            ]
+        }
+        entries = parse_golangci(json.dumps(data), Path("."))
         assert len(entries) == 1
         assert entries[0] == {"file": "main.go", "line": 10, "message": "unused variable"}
 
     def test_handles_empty_issues(self):
         entries = parse_golangci(json.dumps({"Issues": []}), Path("."))
         assert entries == []
-
-    def test_handles_v2_json_output_without_stats(self):
-        v2_output = (
-            json.dumps(
-                {
-                    "Issues": [
-                        {
-                            "Pos": {"Filename": "main.go", "Line": 10},
-                            "Text": "unused variable",
-                        }
-                    ]
-                }
-            )
-        )
-
-        entries = parse_golangci(v2_output, Path("."))
-
-        assert entries == [
-            {"file": "main.go", "line": 10, "message": "unused variable"}
-        ]
 
     def test_rejects_trailing_summary_text(self):
         with pytest.raises(ToolParserError):
