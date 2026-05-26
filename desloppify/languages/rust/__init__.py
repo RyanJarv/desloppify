@@ -71,6 +71,11 @@ class RustConfig(LangConfig):
     """Rust language configuration."""
 
     def __init__(self):
+        tree_sitter_phases = [
+            phase for phase in all_treesitter_phases("rust")
+            if phase.label != "Unused imports"
+        ]
+
         super().__init__(
             name="rust",
             extensions=[".rs"],
@@ -86,7 +91,7 @@ class RustConfig(LangConfig):
                 tool_phase_clippy(),
                 tool_phase_check(),
                 tool_phase_rustdoc(),
-                *all_treesitter_phases("rust", include_unused_imports=False),
+                *tree_sitter_phases,
                 DetectorPhase("Signature analysis", phase_signature),
                 detector_phase_test_coverage(),
                 DetectorPhase("Code smells", phase_smells),

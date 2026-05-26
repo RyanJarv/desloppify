@@ -19,14 +19,11 @@ def test_cxx_keeps_cppcheck_phase():
 
 
 def test_cxx_includes_tree_sitter_phases(monkeypatch):
-    captured: dict[str, object] = {}
+    captured: dict[str, str] = {}
     sentinel = DetectorPhase("Tree-sitter sentinel", lambda *_args: ([], {}))
 
-    def fake_all_treesitter_phases(
-        spec_name: str, *, include_unused_imports: bool = True
-    ):
+    def fake_all_treesitter_phases(spec_name: str):
         captured["spec_name"] = spec_name
-        captured["include_unused_imports"] = include_unused_imports
         return [sentinel]
 
     monkeypatch.setattr(
@@ -40,7 +37,6 @@ def test_cxx_includes_tree_sitter_phases(monkeypatch):
     labels = {phase.label for phase in cfg.phases}
 
     assert captured["spec_name"] == "cpp"
-    assert captured["include_unused_imports"] is False
     assert "Tree-sitter sentinel" in labels
 
 
