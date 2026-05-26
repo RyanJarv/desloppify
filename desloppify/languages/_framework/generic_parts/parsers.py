@@ -17,10 +17,8 @@ class ToolParserError(ValueError):
 
 def _load_json_output(output: str, *, parser_name: str) -> object:
     """Decode JSON output or raise a typed parser error."""
-    text = output.strip()
     try:
-        data, _ = json.JSONDecoder().raw_decode(text)
-        return data
+        return json.loads(output)
     except (json.JSONDecodeError, ValueError) as exc:
         raise ToolParserError(
             f"{parser_name} parser could not decode JSON output"
