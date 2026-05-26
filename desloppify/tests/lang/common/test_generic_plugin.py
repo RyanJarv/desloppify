@@ -103,7 +103,7 @@ class TestParseGolangci:
         entries = parse_golangci(json.dumps({"Issues": []}), Path("."))
         assert entries == []
 
-    def test_handles_v2_json_output_with_trailing_summary(self):
+    def test_handles_v2_json_output_without_stats(self):
         v2_output = (
             json.dumps(
                 {
@@ -115,7 +115,6 @@ class TestParseGolangci:
                     ]
                 }
             )
-            + "\n1 issue.\n"
         )
 
         entries = parse_golangci(v2_output, Path("."))
@@ -124,9 +123,9 @@ class TestParseGolangci:
             {"file": "main.go", "line": 10, "message": "unused variable"}
         ]
 
-    def test_handles_v2_empty_trailing_summary(self):
-        entries = parse_golangci(json.dumps({"Issues": []}) + "\n0 issues.\n", Path("."))
-        assert entries == []
+    def test_rejects_trailing_summary_text(self):
+        with pytest.raises(ToolParserError):
+            parse_golangci(json.dumps({"Issues": []}) + "\n0 issues.\n", Path("."))
 
     def test_handles_null_issues(self):
         entries = parse_golangci(json.dumps({"Issues": None}), Path("."))

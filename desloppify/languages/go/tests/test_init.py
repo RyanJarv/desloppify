@@ -57,6 +57,7 @@ def test_golangci_lint_phase_uses_v2_json_output(monkeypatch, tmp_path):
     phase.run(tmp_path, cfg)
 
     assert "--output.json.path stdout" in captured["cmd"]
+    assert "--show-stats=false" in captured["cmd"]
     assert "--out-format" not in captured["cmd"]
 
 
