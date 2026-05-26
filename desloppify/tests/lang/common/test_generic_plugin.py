@@ -99,6 +99,10 @@ class TestParseGolangci:
         entries = parse_golangci(json.dumps({"Issues": []}), Path("."))
         assert entries == []
 
+    def test_rejects_trailing_summary_text(self):
+        with pytest.raises(ToolParserError):
+            parse_golangci(json.dumps({"Issues": []}) + "\n0 issues.\n", Path("."))
+
     def test_handles_null_issues(self):
         entries = parse_golangci(json.dumps({"Issues": None}), Path("."))
         assert entries == []

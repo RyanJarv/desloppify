@@ -5,6 +5,8 @@ Go plugin originally contributed by tinker495 (PR #128).
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from desloppify.engine.policy.zones import FileZoneMap, Zone
 from desloppify.engine.hook_registry import get_lang_hook
 from desloppify.languages import get_lang
@@ -37,6 +39,26 @@ def test_has_core_phases():
     assert "Security" in labels
     assert "golangci-lint" in labels
     assert "go vet" in labels
+
+
+def test_golangci_lint_phase_uses_v2_json_output(monkeypatch, tmp_path):
+    cfg = get_lang("go")
+    phase = next(p for p in cfg.phases if p.label == "golangci-lint")
+    captured = {}
+
+    def fake_run_tool_result(cmd, path, parser):
+        captured["cmd"] = cmd
+        return SimpleNamespace(status="empty", entries=[], meta={})
+
+    monkeypatch.setattr(
+        "desloppify.languages._framework.generic_parts.tool_factories.run_tool_result",
+        fake_run_tool_result,
+    )
+    phase.run(tmp_path, cfg)
+
+    assert "--output.json.path stdout" in captured["cmd"]
+    assert "--show-stats=false" in captured["cmd"]
+    assert "--out-format" not in captured["cmd"]
 
 
 def test_integration_depth_full():

@@ -57,7 +57,7 @@ class GoConfig(LangConfig):
                 DetectorPhase("Structural analysis", phase_structural),
                 make_tool_phase(
                     "golangci-lint",
-                    "golangci-lint run --out-format=json",
+                    "golangci-lint run --output.json.path stdout --show-stats=false",
                     "golangci",
                     "golangci_lint",
                     tier=2,

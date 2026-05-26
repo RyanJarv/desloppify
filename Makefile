@@ -33,7 +33,7 @@ install-hooks:
 
 install-ci-tools: install-hooks
 	$(PIP) install --upgrade pip
-	$(PIP) install -e . pytest mypy ruff import-linter build twine pyyaml
+	$(PIP) install -e ".[treesitter]" pytest mypy ruff import-linter build twine pyyaml
 
 install-full-tools: install-hooks
 	$(PIP) install --upgrade pip
