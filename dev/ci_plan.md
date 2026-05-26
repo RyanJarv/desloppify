@@ -25,6 +25,8 @@ Required jobs:
   - `make arch`
 - `ci-contracts`:
   - `make ci-contracts` (workflow/docs/policy contract tests)
+- `go-golangci-integration`:
+  - `make integration-go-golangci`
 - `tests-core`:
   - `make tests PYTEST_XML=pytest-core.xml`
 - `tests-full`:
@@ -71,6 +73,7 @@ Required status checks:
 - `CI / typecheck`
 - `CI / arch-contracts`
 - `CI / ci-contracts`
+- `CI / go-golangci-integration`
 - `CI / tests-core`
 - `CI / tests-full`
 - `CI / package-smoke`
@@ -91,6 +94,7 @@ Use the `Makefile` targets:
 - `make ci-fast`: lint + typecheck + import contracts + tests
 - `make ci`: `ci-fast` + full tests + package smoke
 - `make ci-contracts`: verify CI/workflow/docs contracts
+- `make integration-go-golangci`: run Go golangci-lint detector integration parity tests
 - `make integration-roslyn`: run Roslyn-path integration parity tests
 
 ## Rollout

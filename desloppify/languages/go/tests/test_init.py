@@ -7,9 +7,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from desloppify.engine.policy.zones import FileZoneMap, Zone
+import desloppify.languages.go as go_mod
 from desloppify.engine.hook_registry import get_lang_hook
+from desloppify.engine.policy.zones import FileZoneMap, Zone
 from desloppify.languages import get_lang
+from desloppify.languages._framework.base.types import DetectorPhase
 
 
 def test_config_name():
@@ -39,6 +41,25 @@ def test_has_core_phases():
     assert "Security" in labels
     assert "golangci-lint" in labels
     assert "go vet" in labels
+
+
+def test_config_keeps_tree_sitter_phases_without_unused_imports(monkeypatch):
+    def fake_all_treesitter_phases(spec_name: str):
+        assert spec_name == "go"
+        return [
+            DetectorPhase("AST smells", lambda *_args: ([], {})),
+            DetectorPhase("Responsibility cohesion", lambda *_args: ([], {})),
+            DetectorPhase("Unused imports", lambda *_args: ([], {})),
+        ]
+
+    monkeypatch.setattr(go_mod, "all_treesitter_phases", fake_all_treesitter_phases)
+
+    cfg = go_mod.GoConfig()
+    labels = {p.label for p in cfg.phases}
+
+    assert "AST smells" in labels
+    assert "Responsibility cohesion" in labels
+    assert "Unused imports" not in labels
 
 
 def test_golangci_lint_phase_uses_v2_json_output(monkeypatch, tmp_path):
