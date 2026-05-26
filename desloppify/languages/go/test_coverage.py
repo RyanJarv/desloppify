@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 import re
 
+from desloppify.languages.go.support import iter_import_specs, strip_go_comments
+
 ASSERT_PATTERNS = [
     re.compile(p)
     for p in [
@@ -50,11 +52,13 @@ def resolve_import_spec(
         return None
 
     candidates: list[str] = []
+    candidate_dirs: list[str] = []
     for idx in range(len(segments)):
         tail = "/".join(segments[idx:])
         if not tail:
             continue
         leaf = tail.split("/")[-1]
+        candidate_dirs.append(tail)
         candidates.append(f"{tail}.go")
         candidates.append(f"{tail}/{leaf}.go")
 
@@ -78,6 +82,19 @@ def resolve_import_spec(
         for normalized_path, original in normalized_production.items():
             if normalized_path.endswith(suffix):
                 return original
+    for candidate_dir in candidate_dirs:
+        normalized_dir = candidate_dir.replace("\\", "/").strip("/")
+        if not normalized_dir:
+            continue
+        prefix = f"{normalized_dir}/"
+        suffix = f"/{prefix}"
+        matches = sorted(
+            original
+            for normalized_path, original in normalized_production.items()
+            if normalized_path.startswith(prefix) or suffix in f"/{normalized_path}"
+        )
+        if matches:
+            return matches[0]
     return None
 
 
@@ -85,8 +102,8 @@ def resolve_barrel_reexports(_filepath: str, _production_files: set[str]) -> set
     return set()
 
 
-def parse_test_import_specs(_content: str) -> list[str]:
-    return []
+def parse_test_import_specs(content: str) -> list[str]:
+    return iter_import_specs(content)
 
 
 def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
@@ -108,51 +125,4 @@ def strip_test_markers(basename: str) -> str | None:
 
 def strip_comments(content: str) -> str:
     """Strip Go comments while preserving string literals."""
-    out: list[str] = []
-    in_block = False
-    in_string: str | None = None
-    i = 0
-    while i < len(content):
-        ch = content[i]
-        nxt = content[i + 1] if i + 1 < len(content) else ""
-
-        if in_block:
-            if ch == "\n":
-                out.append("\n")
-            if ch == "*" and nxt == "/":
-                in_block = False
-                i += 2
-                continue
-            i += 1
-            continue
-
-        if in_string is not None:
-            out.append(ch)
-            if ch == "\\" and i + 1 < len(content):
-                out.append(content[i + 1])
-                i += 2
-                continue
-            if ch == in_string:
-                in_string = None
-            i += 1
-            continue
-
-        if ch in ('"', '`'):
-            in_string = ch
-            out.append(ch)
-            i += 1
-            continue
-
-        if ch == "/" and nxt == "*":
-            in_block = True
-            i += 2
-            continue
-        if ch == "/" and nxt == "/":
-            while i < len(content) and content[i] != "\n":
-                i += 1
-            continue
-
-        out.append(ch)
-        i += 1
-
-    return "".join(out)
+    return strip_go_comments(content)

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from desloppify.engine._state.filtering import make_issue
 from desloppify.languages._framework.base.types import (
     DetectorPhase,
     FixerConfig,
@@ -20,7 +21,6 @@ from desloppify.languages._framework.generic_parts.tool_runner import (
     run_tool_result,
 )
 from desloppify.languages._framework.generic_parts.tool_spec import ToolSpec
-from desloppify.engine._state.filtering import make_issue
 
 
 def _record_tool_failure_coverage(
@@ -57,9 +57,12 @@ def _record_tool_failure_coverage(
             coverage_warnings.append(dict(record))
 
 
+ToolCommand = str | Callable[[Path, Any], str]
+
+
 def make_tool_phase(
     label: str,
-    cmd: str,
+    cmd: ToolCommand,
     fmt: str,
     smell_id: str,
     tier: int,
@@ -72,7 +75,8 @@ def make_tool_phase(
 
     def run(path: Path, lang: Any) -> tuple[list[dict[str, Any]], dict[str, int]]:
         run_path = cwd_fn(path, lang).resolve() if cwd_fn is not None else path
-        run_result = run_tool_result(cmd, run_path, parser)
+        run_cmd = cmd(run_path, lang) if callable(cmd) else cmd
+        run_result = run_tool_result(run_cmd, run_path, parser)
         if run_result.status == "error":
             _record_tool_failure_coverage(
                 lang,

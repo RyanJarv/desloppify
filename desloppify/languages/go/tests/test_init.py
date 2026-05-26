@@ -8,6 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import desloppify.languages.go as go_mod
+from desloppify.base.runtime_state import RuntimeContext, runtime_scope
 from desloppify.engine.hook_registry import get_lang_hook
 from desloppify.engine.policy.zones import FileZoneMap, Zone
 from desloppify.languages import get_lang
@@ -80,6 +81,34 @@ def test_golangci_lint_phase_uses_v2_json_output(monkeypatch, tmp_path):
     assert "--output.json.path stdout" in captured["cmd"]
     assert "--show-stats=false" in captured["cmd"]
     assert "--out-format" not in captured["cmd"]
+
+
+def test_golangci_lint_phase_uses_exact_package_dirs(monkeypatch, tmp_path):
+    (tmp_path / "pkg" / "service").mkdir(parents=True)
+    (tmp_path / "node_modules" / "template").mkdir(parents=True)
+    (tmp_path / "go.mod").write_text("module example.com/app\n")
+    (tmp_path / "main.go").write_text("package main\n")
+    (tmp_path / "pkg" / "service" / "service.go").write_text("package service\n")
+    (tmp_path / "node_modules" / "template" / "bad.go").write_text("package bad\n")
+
+    cfg = get_lang("go")
+    phase = next(p for p in cfg.phases if p.label == "golangci-lint")
+    captured = {}
+
+    def fake_run_tool_result(cmd, path, parser):
+        captured["cmd"] = cmd
+        return SimpleNamespace(status="empty", entries=[], meta={})
+
+    monkeypatch.setattr(
+        "desloppify.languages._framework.generic_parts.tool_factories.run_tool_result",
+        fake_run_tool_result,
+    )
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        phase.run(tmp_path, cfg)
+
+    assert captured["cmd"].endswith(" . ./pkg/service")
+    assert "./..." not in captured["cmd"]
+    assert "node_modules" not in captured["cmd"]
 
 
 def test_integration_depth_full():
