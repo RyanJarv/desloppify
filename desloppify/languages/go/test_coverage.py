@@ -7,8 +7,13 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 
-from desloppify.languages.go.support import iter_import_specs, strip_go_comments
+from desloppify.languages.go.support import (
+    iter_import_specs,
+    read_module_path,
+    strip_go_comments,
+)
 
 ASSERT_PATTERNS = [
     re.compile(p)
@@ -46,19 +51,19 @@ def resolve_import_spec(
     normalized = spec.strip().strip("\"'`").replace("\\", "/").strip("/")
     if not normalized or normalized in {"C", "unsafe"}:
         return None
+    if _is_non_local_import(normalized, test_path):
+        return None
 
     segments = [segment for segment in normalized.split("/") if segment]
     if not segments:
         return None
 
     candidates: list[str] = []
-    candidate_dirs: list[str] = []
     for idx in range(len(segments)):
         tail = "/".join(segments[idx:])
         if not tail:
             continue
         leaf = tail.split("/")[-1]
-        candidate_dirs.append(tail)
         candidates.append(f"{tail}.go")
         candidates.append(f"{tail}/{leaf}.go")
 
@@ -82,19 +87,34 @@ def resolve_import_spec(
         for normalized_path, original in normalized_production.items():
             if normalized_path.endswith(suffix):
                 return original
-    for candidate_dir in candidate_dirs:
-        normalized_dir = candidate_dir.replace("\\", "/").strip("/")
-        if not normalized_dir:
-            continue
-        prefix = f"{normalized_dir}/"
-        suffix = f"/{prefix}"
-        matches = sorted(
-            original
-            for normalized_path, original in normalized_production.items()
-            if normalized_path.startswith(prefix) or suffix in f"/{normalized_path}"
-        )
-        if matches:
-            return matches[0]
+    return None
+
+
+def _is_non_local_import(spec: str, test_path: str) -> bool:
+    """Return True for imports that should not resolve to project files."""
+    segments = [segment for segment in spec.split("/") if segment]
+    if len(segments) <= 1:
+        return True
+
+    first = segments[0]
+    if "." not in first:
+        return False
+
+    module_path = _nearest_module_path(test_path)
+    if module_path is None:
+        return False
+    return spec != module_path and not spec.startswith(f"{module_path}/")
+
+
+def _nearest_module_path(test_path: str) -> str | None:
+    path = Path(test_path)
+    if not path.is_absolute():
+        return None
+    cursor = path.parent if path.suffix else path
+    for candidate in (cursor, *cursor.parents):
+        go_mod = candidate / "go.mod"
+        if go_mod.is_file():
+            return read_module_path(go_mod)
     return None
 
 

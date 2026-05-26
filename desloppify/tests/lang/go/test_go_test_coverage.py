@@ -21,19 +21,31 @@ def test_resolve_import_spec_matches_module_prefixed_path_by_suffix():
     assert resolved == "pkg/service/handler.go"
 
 
-def test_resolve_import_spec_matches_imported_package_directory():
-    production = {"pkg/service/handler.go", "pkg/service/store.go"}
-    resolved = go_cov.resolve_import_spec(
-        "github.com/acme/project/pkg/service",
-        "pkg/service/handler_test.go",
-        production,
-    )
-    assert resolved == "pkg/service/handler.go"
-
-
 def test_resolve_import_spec_skips_special_imports():
     production = {"pkg/service/handler.go"}
     assert go_cov.resolve_import_spec("unsafe", "pkg/service/handler_test.go", production) is None
+
+
+def test_resolve_import_spec_skips_stdlib_basename_collisions():
+    production = {"pkg/foo/testing.go"}
+    assert go_cov.resolve_import_spec("testing", "pkg/foo/foo_test.go", production) is None
+
+
+def test_resolve_import_spec_skips_external_module_collisions(tmp_path):
+    (tmp_path / "go.mod").write_text("module github.com/acme/project\n")
+    source = tmp_path / "pkg/service/handler.go"
+    source.parent.mkdir(parents=True)
+    source.write_text("package service\n")
+    test_file = tmp_path / "pkg/service/handler_test.go"
+    test_file.write_text("package service_test\n")
+
+    resolved = go_cov.resolve_import_spec(
+        "github.com/other/project/pkg/service/handler",
+        str(test_file),
+        {str(source)},
+    )
+
+    assert resolved is None
 
 
 def test_parse_test_import_specs_extracts_single_and_grouped_imports():

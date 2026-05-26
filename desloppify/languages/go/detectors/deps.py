@@ -38,7 +38,7 @@ def _build_package_index(
     for source in files:
         if source.path.name.endswith("_test.go"):
             continue
-        package_refs_by_dir[source.path.parent].add(source.ref)
+        package_refs_by_dir[source.path.parent].add(str(source.path))
 
     package_index: dict[str, set[str]] = defaultdict(set)
     for package_dir, refs in package_refs_by_dir.items():
@@ -81,7 +81,7 @@ def build_dep_graph(
     """Build a Go dependency graph from local import declarations."""
     del roslyn_cmd
     files = find_go_source_files(path)
-    graph = {source.ref: {"imports": set(), "importers": set()} for source in files}
+    graph = {str(source.path): {"imports": set(), "importers": set()} for source in files}
     if not graph:
         return {}
 
@@ -90,6 +90,7 @@ def build_dep_graph(
     package_index, package_refs_by_dir = _build_package_index(files, modules, root)
 
     for source in files:
+        source_key = str(source.path)
         content = read_text_or_none(source.path)
         if content is None:
             continue
@@ -102,10 +103,10 @@ def build_dep_graph(
                 package_refs_by_dir=package_refs_by_dir,
             )
             for resolved in resolved_refs:
-                if resolved == source.ref:
+                if resolved == source_key:
                     continue
-                graph[source.ref]["imports"].add(resolved)
-                graph[resolved]["importers"].add(source.ref)
+                graph[source_key]["imports"].add(resolved)
+                graph[resolved]["importers"].add(source_key)
 
     return finalize_graph(graph)
 

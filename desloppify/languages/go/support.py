@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import subprocess  # nosec B404
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +16,9 @@ _GO_IMPORT_DECL_RE = re.compile(
     r"""(?ms)^\s*import\s+(?P<body>\((?P<block>.*?)\)|(?:[._A-Za-z]\w*\s+)?["`][^"`]+["`])"""
 )
 _GO_STRING_RE = re.compile(r"""(?P<quote>["`])(?P<path>[^"`]+)(?P=quote)""")
-_GO_MODULE_RE = re.compile(r"""(?m)^\s*module\s+(\S+)\s*$""")
+_GO_MODULE_RE = re.compile(r"""(?m)^\s*module\s+(\S+)(?:\s*//.*)?\s*$""")
+_GO_LIST_FORMAT = "{{.Dir}}\t{{if .Error}}{{.Error}}{{end}}"
+_GO_LIST_CHUNK_SIZE = 100
 
 
 @dataclass(frozen=True)
@@ -53,21 +56,53 @@ def find_go_source_files(path: Path | str) -> list[GoSourceFile]:
 
 
 def go_package_args(path: Path | str) -> list[str]:
-    """Return exact Go package-directory args for the current scan."""
+    """Return exact valid Go package-directory args for the current scan."""
     root = scan_root(path)
     package_dirs = {source.path.parent for source in find_go_source_files(path)}
-    args: list[str] = []
+    candidate_args: dict[Path, str] = {}
     for package_dir in sorted(package_dirs):
-        try:
-            rel_dir = package_dir.relative_to(root)
-        except ValueError:
-            args.append(str(package_dir))
-            continue
-        if str(rel_dir) == ".":
-            args.append(".")
-        else:
-            args.append("./" + rel_dir.as_posix())
+        candidate_args[package_dir] = _package_arg(root, package_dir)
+
+    valid_dirs = _go_list_valid_dirs(root, list(candidate_args.values()))
+    args: list[str] = []
+    for package_dir, arg in candidate_args.items():
+        if package_dir in valid_dirs:
+            args.append(arg)
     return args or ["."]
+
+
+def _package_arg(root: Path, package_dir: Path) -> str:
+    try:
+        rel_dir = package_dir.relative_to(root)
+    except ValueError:
+        return str(package_dir)
+    if str(rel_dir) == ".":
+        return "."
+    return "./" + rel_dir.as_posix()
+
+
+def _chunks(items: list[str], size: int) -> list[list[str]]:
+    return [items[index : index + size] for index in range(0, len(items), size)]
+
+
+def _go_list_valid_dirs(root: Path, args: list[str]) -> set[Path]:
+    """Return package dirs accepted by Go for the current module/workspace."""
+    valid_dirs: set[Path] = set()
+    for chunk in _chunks(args, _GO_LIST_CHUNK_SIZE):
+        result = subprocess.run(
+            ["go", "list", "-e", "-f", _GO_LIST_FORMAT, *chunk],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        for line in result.stdout.splitlines():
+            dir_text, _, error_text = line.partition("\t")
+            if not dir_text or error_text.strip():
+                continue
+            valid_dirs.add(Path(dir_text).resolve())
+    return valid_dirs
 
 
 def shell_join(parts: list[str]) -> str:
