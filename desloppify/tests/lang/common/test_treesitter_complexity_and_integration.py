@@ -1147,13 +1147,13 @@ class TestPhaseWiring:
         labels = [p.label for p in lang.phases]
         assert "Signature analysis" in labels
 
-    def test_go_skips_generic_unused_imports_phase(self):
+    def test_go_has_unused_imports_phase(self):
         import desloppify.languages.go  # noqa: F401
         from desloppify.languages._framework.registry.resolution import get_lang
 
         lang = get_lang("go")
         labels = [p.label for p in lang.phases]
-        assert "Unused imports" not in labels
+        assert "Unused imports" in labels
 
     def test_bash_has_no_unused_imports(self):
         """Bash has import_query but it resolves source commands.

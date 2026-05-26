@@ -65,7 +65,7 @@ class GoConfig(LangConfig):
                 make_tool_phase(
                     "go vet", "go vet ./...", "gnu", "vet_error", tier=3
                 ),
-                *all_treesitter_phases("go", include_unused_imports=False),
+                *all_treesitter_phases("go"),
                 detector_phase_signature(),
                 detector_phase_test_coverage(),
                 detector_phase_security(),
