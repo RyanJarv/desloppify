@@ -6,6 +6,8 @@ Upgraded from generic_lang to full class-based plugin.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from desloppify.base.discovery.paths import get_area
 from desloppify.languages._framework.base.phase_builders import (
     detector_phase_security,
@@ -37,8 +39,27 @@ from desloppify.languages.go.review import (
     api_surface,
     module_patterns,
 )
+from desloppify.languages.go.support import go_package_args, shell_join
 
 GO_ENTRY_PATTERNS = ["/main.go", "/cmd/"]
+
+
+def _golangci_lint_cmd(path: Path, _lang: object) -> str:
+    return shell_join(
+        [
+            "golangci-lint",
+            "run",
+            "--output.json.path",
+            "stdout",
+            "--show-stats=false",
+            *go_package_args(path),
+        ]
+    )
+
+
+def _go_vet_cmd(path: Path, _lang: object) -> str:
+    return shell_join(["go", "vet", *go_package_args(path)])
+
 
 class GoConfig(LangConfig):
     """Go language configuration."""
@@ -61,13 +82,13 @@ class GoConfig(LangConfig):
                 DetectorPhase("Structural analysis", phase_structural),
                 make_tool_phase(
                     "golangci-lint",
-                    "golangci-lint run --output.json.path stdout --show-stats=false",
+                    _golangci_lint_cmd,
                     "golangci",
                     "golangci_lint",
                     tier=2,
                 ),
                 make_tool_phase(
-                    "go vet", "go vet ./...", "gnu", "vet_error", tier=3
+                    "go vet", _go_vet_cmd, "gnu", "vet_error", tier=3
                 ),
                 *tree_sitter_phases,
                 detector_phase_signature(),

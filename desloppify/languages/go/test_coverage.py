@@ -7,6 +7,13 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
+
+from desloppify.languages.go.support import (
+    iter_import_specs,
+    read_module_path,
+    strip_go_comments,
+)
 
 ASSERT_PATTERNS = [
     re.compile(p)
@@ -43,6 +50,8 @@ def resolve_import_spec(
     """Best-effort Go import-path to source-file resolution for direct imports."""
     normalized = spec.strip().strip("\"'`").replace("\\", "/").strip("/")
     if not normalized or normalized in {"C", "unsafe"}:
+        return None
+    if _is_non_local_import(normalized, test_path):
         return None
 
     segments = [segment for segment in normalized.split("/") if segment]
@@ -81,12 +90,40 @@ def resolve_import_spec(
     return None
 
 
+def _is_non_local_import(spec: str, test_path: str) -> bool:
+    """Return True for imports that should not resolve to project files."""
+    segments = [segment for segment in spec.split("/") if segment]
+    if len(segments) <= 1:
+        return True
+
+    first = segments[0]
+    if "." not in first:
+        return False
+
+    module_path = _nearest_module_path(test_path)
+    if module_path is None:
+        return False
+    return spec != module_path and not spec.startswith(f"{module_path}/")
+
+
+def _nearest_module_path(test_path: str) -> str | None:
+    path = Path(test_path)
+    if not path.is_absolute():
+        return None
+    cursor = path.parent if path.suffix else path
+    for candidate in (cursor, *cursor.parents):
+        go_mod = candidate / "go.mod"
+        if go_mod.is_file():
+            return read_module_path(go_mod)
+    return None
+
+
 def resolve_barrel_reexports(_filepath: str, _production_files: set[str]) -> set[str]:
     return set()
 
 
-def parse_test_import_specs(_content: str) -> list[str]:
-    return []
+def parse_test_import_specs(content: str) -> list[str]:
+    return iter_import_specs(content)
 
 
 def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
@@ -108,51 +145,4 @@ def strip_test_markers(basename: str) -> str | None:
 
 def strip_comments(content: str) -> str:
     """Strip Go comments while preserving string literals."""
-    out: list[str] = []
-    in_block = False
-    in_string: str | None = None
-    i = 0
-    while i < len(content):
-        ch = content[i]
-        nxt = content[i + 1] if i + 1 < len(content) else ""
-
-        if in_block:
-            if ch == "\n":
-                out.append("\n")
-            if ch == "*" and nxt == "/":
-                in_block = False
-                i += 2
-                continue
-            i += 1
-            continue
-
-        if in_string is not None:
-            out.append(ch)
-            if ch == "\\" and i + 1 < len(content):
-                out.append(content[i + 1])
-                i += 2
-                continue
-            if ch == in_string:
-                in_string = None
-            i += 1
-            continue
-
-        if ch in ('"', '`'):
-            in_string = ch
-            out.append(ch)
-            i += 1
-            continue
-
-        if ch == "/" and nxt == "*":
-            in_block = True
-            i += 2
-            continue
-        if ch == "/" and nxt == "/":
-            while i < len(content) and content[i] != "\n":
-                i += 1
-            continue
-
-        out.append(ch)
-        i += 1
-
-    return "".join(out)
+    return strip_go_comments(content)
