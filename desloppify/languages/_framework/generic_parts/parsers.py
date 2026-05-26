@@ -17,8 +17,10 @@ class ToolParserError(ValueError):
 
 def _load_json_output(output: str, *, parser_name: str) -> object:
     """Decode JSON output or raise a typed parser error."""
+    text = output.strip()
     try:
-        return json.loads(output)
+        data, _ = json.JSONDecoder().raw_decode(text)
+        return data
     except (json.JSONDecodeError, ValueError) as exc:
         raise ToolParserError(
             f"{parser_name} parser could not decode JSON output"
@@ -63,14 +65,7 @@ def parse_golangci(output: str, scan_path: Path) -> list[dict]:
     """Parse golangci-lint JSON output: `{"Issues": [...]}`."""
     del scan_path
     entries: list[dict] = []
-    try:
-        # golangci-lint v2 can append a human summary such as "0 issues."
-        # after the requested JSON output.
-        data, _ = json.JSONDecoder().raw_decode(output.lstrip())
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise ToolParserError(
-            "golangci parser could not decode JSON output"
-        ) from exc
+    data = _load_json_output(output, parser_name="golangci")
     issues = data.get("Issues") if isinstance(data, dict) else []
     for issue in issues or []:
         pos = issue.get("Pos") or {}
